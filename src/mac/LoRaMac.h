@@ -480,6 +480,10 @@ typedef enum eLoRaMacEventInfoStatus
      * ToDo
      */
     LORAMAC_EVENT_INFO_STATUS_BEACON_NOT_FOUND,
+
+    /* TODO: added more detailed errors */
+    LORAMAC_EVENT_INFO_STATUS_SMALL_FRAME,
+    LORAMAC_EVENT_INFO_STATUS_VERSION_MISMATCH,
 }LoRaMacEventInfoStatus_t;
 
 /*!

@@ -92,6 +92,13 @@ typedef union Version_u
 void srand1( uint32_t seed );
 
 /*!
+ * \brief Computes a random number
+ *
+ * \retval random random value in range 0..RAND_LOCAL_MAX
+ */
+int32_t rand1( void );
+
+/*!
  * \brief Computes a random number between min and max
  *
  * \param [IN] min range minimum value

@@ -45,9 +45,14 @@ extern "C"
 #include "region/Region.h"
 
 /*!
+ * LoRaMac maximum number of groups of 8 125 kHz channels + 1 500 kHz channel
+ */
+#define US915_MAX_NB_GROUPS                         1
+
+/*!
  * LoRaMac maximum number of channels
  */
-#define US915_MAX_NB_CHANNELS                       72
+#define US915_MAX_NB_CHANNELS                       (US915_MAX_NB_GROUPS*9)
 
 /*!
  * Minimal datarate that can be used by the node

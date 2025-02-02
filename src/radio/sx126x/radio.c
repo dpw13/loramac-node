@@ -580,6 +580,7 @@ void RadioSetModem( RadioModems_t modem )
 
 void RadioSetChannel( uint32_t freq )
 {
+    //printk("RadioSetChannel: %d\n", freq);
     SX126xSetRfFrequency( freq );
 }
 
@@ -591,6 +592,7 @@ bool RadioIsChannelFree( uint32_t freq, uint32_t rxBandwidth, int16_t rssiThresh
 
     RadioSetModem( MODEM_FSK );
 
+    //printk("RadioIsChannelFree %d\n", freq);
     RadioSetChannel( freq );
 
     // Set Rx bandwidth. Other parameters are not used.
@@ -1063,6 +1065,8 @@ void RadioStandby( void )
 
 void RadioRx( uint32_t timeout )
 {
+    //printk("%d: RadioRx %d\n", RtcGetTimerValue(), timeout);
+
     SX126xSetDioIrqParams( IRQ_RADIO_ALL, //IRQ_RX_DONE | IRQ_RX_TX_TIMEOUT,
                            IRQ_RADIO_ALL, //IRQ_RX_DONE | IRQ_RX_TX_TIMEOUT,
                            IRQ_RADIO_NONE,
@@ -1074,7 +1078,7 @@ void RadioRx( uint32_t timeout )
         TimerStart( &RxTimeoutTimer );
     }
 
-    if( RxContinuous == true )
+    if( RxContinuous == true || RxTimeout == 0xFFFF)
     {
         SX126xSetRx( 0xFFFFFF ); // Rx Continuous
     }
@@ -1097,7 +1101,7 @@ void RadioRxBoosted( uint32_t timeout )
         TimerStart( &RxTimeoutTimer );
     }
 
-    if( RxContinuous == true )
+    if( RxContinuous == true || RxTimeout == 0xFFFF)
     {
         SX126xSetRxBoosted( 0xFFFFFF ); // Rx Continuous
     }
@@ -1236,6 +1240,7 @@ void RadioOnTxTimeoutIrq( void* context )
 
 void RadioOnRxTimeoutIrq( void* context )
 {
+    //printk("%d: RadioOnRxTimeoutIrq\n", RtcGetTimerValue());
     if( ( RadioEvents != NULL ) && ( RadioEvents->RxTimeout != NULL ) )
     {
         RadioEvents->RxTimeout( );
@@ -1259,6 +1264,7 @@ void RadioIrqProcess( void )
     {
         uint16_t irqRegs = SX126xGetIrqStatus( );
         SX126xClearIrqStatus( irqRegs );
+        //printk("%d: RadioIrqProcess %04x\n", RtcGetTimerValue(), irqRegs);
 
         // Check if DIO1 pin is High. If it is the case revert IrqFired to true
         CRITICAL_SECTION_BEGIN_REPEAT( );
@@ -1272,11 +1278,24 @@ void RadioIrqProcess( void )
         {
             TimerStop( &TxTimeoutTimer );
             //!< Update operating mode state to a value lower than \ref MODE_STDBY_XOSC
+            //printk("%d: IRQ_TX_DONE\n", RtcGetTimerValue());
             SX126xSetOperatingMode( MODE_STDBY_RC );
             if( ( RadioEvents != NULL ) && ( RadioEvents->TxDone != NULL ) )
             {
                 RadioEvents->TxDone( );
             }
+        }
+
+        if( ( irqRegs & (IRQ_PREAMBLE_DETECTED | IRQ_HEADER_VALID) ) != 0 )
+        {
+            // WORKAROUND - Implicit Header Mode Timeout Behavior, see DS_SX1261-2_V1.2 datasheet chapter 15.3
+            /* Forcefully disable RX_TX timeout */
+            //SX126xWriteRegister( REG_RTC_CTRL, 0x00 );
+            //SX126xWriteRegister( REG_EVT_CLR, SX126xReadRegister( REG_EVT_CLR ) | ( 1 << 1 ) );
+            // WORKAROUND END
+            /* TODO: putting this here appears to fix irqRegs == 0xFF00. No clue why. */
+            SX126xGetDeviceErrors();
+            SX126xClearDeviceErrors();
         }
 
         if( ( irqRegs & IRQ_RX_DONE ) == IRQ_RX_DONE )
@@ -1288,6 +1307,7 @@ void RadioIrqProcess( void )
                 if( RxContinuous == false )
                 {
                     //!< Update operating mode state to a value lower than \ref MODE_STDBY_XOSC
+                    //printk("%d: IRQ_CRC_ERROR\n", RtcGetTimerValue());
                     SX126xSetOperatingMode( MODE_STDBY_RC );
                 }
                 if( ( RadioEvents != NULL ) && ( RadioEvents->RxError ) )
@@ -1302,6 +1322,7 @@ void RadioIrqProcess( void )
                 if( RxContinuous == false )
                 {
                     //!< Update operating mode state to a value lower than \ref MODE_STDBY_XOSC
+                    //printk("%d: IRQ_RX_DONE no CRC err\n", RtcGetTimerValue());
                     SX126xSetOperatingMode( MODE_STDBY_RC );
 
                     // WORKAROUND - Implicit Header Mode Timeout Behavior, see DS_SX1261-2_V1.2 datasheet chapter 15.3
@@ -1321,6 +1342,7 @@ void RadioIrqProcess( void )
         if( ( irqRegs & IRQ_CAD_DONE ) == IRQ_CAD_DONE )
         {
             //!< Update operating mode state to a value lower than \ref MODE_STDBY_XOSC
+            //printk("%d: IRQ_CAD_DONE\n", RtcGetTimerValue());
             SX126xSetOperatingMode( MODE_STDBY_RC );
             if( ( RadioEvents != NULL ) && ( RadioEvents->CadDone != NULL ) )
             {
@@ -1328,12 +1350,13 @@ void RadioIrqProcess( void )
             }
         }
 
-        if( ( irqRegs & IRQ_RX_TX_TIMEOUT ) == IRQ_RX_TX_TIMEOUT )
+        if( ( irqRegs & IRQ_RX_TX_TIMEOUT ) == IRQ_RX_TX_TIMEOUT)
         {
             if( SX126xGetOperatingMode( ) == MODE_TX )
             {
                 TimerStop( &TxTimeoutTimer );
                 //!< Update operating mode state to a value lower than \ref MODE_STDBY_XOSC
+                //printk("%d: IRQ_RX_TX_TIMEOUT in TX\n", RtcGetTimerValue());
                 SX126xSetOperatingMode( MODE_STDBY_RC );
                 if( ( RadioEvents != NULL ) && ( RadioEvents->TxTimeout != NULL ) )
                 {
@@ -1344,6 +1367,7 @@ void RadioIrqProcess( void )
             {
                 TimerStop( &RxTimeoutTimer );
                 //!< Update operating mode state to a value lower than \ref MODE_STDBY_XOSC
+                //printk("%d: IRQ_RX_TX_TIMEOUT in RX\n", RtcGetTimerValue());
                 SX126xSetOperatingMode( MODE_STDBY_RC );
                 if( ( RadioEvents != NULL ) && ( RadioEvents->RxTimeout != NULL ) )
                 {

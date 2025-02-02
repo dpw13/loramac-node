@@ -33,6 +33,12 @@
 #include "RegionUS915.h"
 #include "RegionBaseUS.h"
 
+#if LOG_DEBUG
+#define log_debug(...) printk(...)
+#else
+#define log_debug(...)
+#endif
+
 // Definitions
 #define CHANNELS_MASK_SIZE              6
 
@@ -345,27 +351,38 @@ void RegionUS915InitDefaults( InitDefaultsParams_t* params )
             memcpy1( ( uint8_t* )RegionBands, ( uint8_t* )bands, sizeof( Band_t ) * US915_MAX_NB_BANDS );
 
             // Default channels
-            for( uint8_t i = 0; i < US915_MAX_NB_CHANNELS - 8; i++ )
+            for( uint8_t i = 0; i < 8*US915_MAX_NB_GROUPS; i++ )
             {
                 // 125 kHz channels
                 RegionNvmGroup2->Channels[i].Frequency = 902300000 + i * 200000;
                 RegionNvmGroup2->Channels[i].DrRange.Value = ( DR_3 << 4 ) | DR_0;
                 RegionNvmGroup2->Channels[i].Band = 0;
+                //log_debug("Ch %d freq %d 125 kHz\n", i, RegionNvmGroup2->Channels[i].Frequency);
             }
-            for( uint8_t i = US915_MAX_NB_CHANNELS - 8; i < US915_MAX_NB_CHANNELS; i++ )
+            for( uint8_t i = 0; i < US915_MAX_NB_GROUPS; i++ )
             {
                 // 500 kHz channels
-                RegionNvmGroup2->Channels[i].Frequency = 903000000 + ( i - ( US915_MAX_NB_CHANNELS - 8 ) ) * 1600000;
-                RegionNvmGroup2->Channels[i].DrRange.Value = ( DR_4 << 4 ) | DR_4;
-                RegionNvmGroup2->Channels[i].Band = 0;
+                RegionNvmGroup2->Channels[64 + i].Frequency = 903000000 + ( i - ( US915_MAX_NB_CHANNELS - 8 ) ) * 1600000;
+                RegionNvmGroup2->Channels[64 + i].DrRange.Value = ( DR_4 << 4 ) | DR_4;
+                RegionNvmGroup2->Channels[64 + i].Band = 0;
+                //log_debug("Ch %d freq %d 500 kHz\n", 64 + i, RegionNvmGroup2->Channels[4 + i].Frequency);
             }
 
             // Default ChannelsMask
-            RegionNvmGroup2->ChannelsDefaultMask[0] = 0xFFFF;
-            RegionNvmGroup2->ChannelsDefaultMask[1] = 0xFFFF;
-            RegionNvmGroup2->ChannelsDefaultMask[2] = 0xFFFF;
-            RegionNvmGroup2->ChannelsDefaultMask[3] = 0xFFFF;
-            RegionNvmGroup2->ChannelsDefaultMask[4] = 0x00FF;
+            memset1((void *)RegionNvmGroup2->ChannelsDefaultMask, 0, 12);
+            if (US915_MAX_NB_GROUPS == 1) {
+                RegionNvmGroup2->ChannelsDefaultMask[0] = 0x00FF;
+                RegionNvmGroup2->ChannelsDefaultMask[1] = 0x0000;
+                RegionNvmGroup2->ChannelsDefaultMask[2] = 0x0000;
+                RegionNvmGroup2->ChannelsDefaultMask[3] = 0x0000;
+                RegionNvmGroup2->ChannelsDefaultMask[4] = 0x0001;
+            } else {
+                RegionNvmGroup2->ChannelsDefaultMask[0] = 0xFFFF;
+                RegionNvmGroup2->ChannelsDefaultMask[1] = 0xFFFF;
+                RegionNvmGroup2->ChannelsDefaultMask[2] = 0xFFFF;
+                RegionNvmGroup2->ChannelsDefaultMask[3] = 0xFFFF;
+                RegionNvmGroup2->ChannelsDefaultMask[4] = 0x00FF;
+            }
             RegionNvmGroup2->ChannelsDefaultMask[5] = 0x0000;
 
             // Copy channels default mask
@@ -516,6 +533,8 @@ bool RegionUS915RxConfig( RxConfigParams_t* rxConfig, int8_t* datarate )
     int8_t phyDr = 0;
     uint32_t frequency = rxConfig->Frequency;
 
+    //log_debug("RegionUS915RxConfig not idle\n");
+
     if( Radio.GetStatus( ) != RF_IDLE )
     {
         return false;
@@ -530,6 +549,7 @@ bool RegionUS915RxConfig( RxConfigParams_t* rxConfig, int8_t* datarate )
     // Read the physical datarate from the datarates table
     phyDr = DataratesUS915[dr];
 
+    //log_debug("RegionUS915RxConfig ch %d %d/%d bw %d dr %d\n", rxConfig->Channel, rxConfig->Frequency, frequency, rxConfig->Bandwidth, dr);
     Radio.SetChannel( frequency );
 
     // Radio configuration
@@ -552,6 +572,7 @@ bool RegionUS915TxConfig( TxConfigParams_t* txConfig, int8_t* txPower, TimerTime
     phyTxPower = RegionCommonComputeTxPower( txPowerLimited, US915_DEFAULT_MAX_ERP, 0 );
 
     // Setup the radio frequency
+    //log_debug("RegionUS915TxConfig channel %d\n", txConfig->Channel);
     Radio.SetChannel( RegionNvmGroup2->Channels[txConfig->Channel].Frequency );
 
     Radio.SetTxConfig( MODEM_LORA, phyTxPower, 0, bandwidth, phyDr, 1, 8, false, true, 0, 0, false, 4000 );
@@ -622,7 +643,7 @@ uint8_t RegionUS915LinkAdrReq( LinkAdrReqParams_t* linkAdrReq, int8_t* drOut, in
             uint8_t cntChannelMask = 0;
 
             // i will be 1, 2, 3, ..., 7
-            for( uint8_t i = 0; i <= 7; i++ )
+            for( uint8_t i = 0; i < US915_MAX_NB_GROUPS; i++ )
             {
                 // 8 MSBs of ChMask are RFU
                 // Checking if the ChMask is set, then true
@@ -809,9 +830,11 @@ LoRaMacStatus_t RegionUS915NextChannel( NextChanParams_t* nextChanParams, uint8_
     RegionCommonCountNbOfEnabledChannelsParams_t countChannelsParams;
     LoRaMacStatus_t status = LORAMAC_STATUS_NO_CHANNEL_FOUND;
 
+    log_debug("RegionUS915NextChannel dr %d\n", nextChanParams->Datarate);
     // Count 125kHz channels
     if( RegionCommonCountChannels( RegionNvmGroup1->ChannelsMaskRemaining, 0, 4 ) == 0 )
     { // Reactivate default channels
+        log_debug("RegionUS915NextChannel: Reactivating channels\n");
         RegionCommonChanMaskCopy( RegionNvmGroup1->ChannelsMaskRemaining, RegionNvmGroup2->ChannelsMask, 4  );
 
         RegionNvmGroup1->JoinChannelGroupsCurrentIndex = 0;
@@ -831,7 +854,10 @@ LoRaMacStatus_t RegionUS915NextChannel( NextChanParams_t* nextChanParams, uint8_
     countChannelsParams.ChannelsMask = RegionNvmGroup1->ChannelsMaskRemaining;
     countChannelsParams.Channels = RegionNvmGroup2->Channels;
     countChannelsParams.Bands = RegionBands;
-    countChannelsParams.MaxNbChannels = US915_MAX_NB_CHANNELS;
+    /* The algorithm for counting channels needs to count at least to 72
+     * due to the way the 500 kHz channels are noncontiguous
+     */
+    countChannelsParams.MaxNbChannels = 72; //US915_MAX_NB_CHANNELS;
     countChannelsParams.JoinChannels = NULL;
 
     identifyChannelsParam.AggrTimeOff = nextChanParams->AggrTimeOff;
@@ -847,6 +873,9 @@ LoRaMacStatus_t RegionUS915NextChannel( NextChanParams_t* nextChanParams, uint8_
 
     status = RegionCommonIdentifyChannels( &identifyChannelsParam, aggregatedTimeOff, enabledChannels,
                                            &nbEnabledChannels, &nbRestrictedChannels, time );
+
+    log_debug("RegionUS915NextChannel nbEnabledChannels %d %04x %04x %04x\n", nbEnabledChannels,
+        RegionNvmGroup1->ChannelsMaskRemaining[0], RegionNvmGroup1->ChannelsMaskRemaining[1], RegionNvmGroup1->ChannelsMaskRemaining[2]);
 
     if( status == LORAMAC_STATUS_OK )
     {
@@ -865,9 +894,14 @@ LoRaMacStatus_t RegionUS915NextChannel( NextChanParams_t* nextChanParams, uint8_
             // 125kHz Channels (0 - 63) DR0
             if( nextChanParams->Datarate == DR_0 )
             {
-                if( RegionBaseUSComputeNext125kHzJoinChannel( ( uint16_t* ) RegionNvmGroup1->ChannelsMaskRemaining,
-                    &RegionNvmGroup1->JoinChannelGroupsCurrentIndex, channel ) == LORAMAC_STATUS_PARAMETER_INVALID )
+                status = RegionBaseUSComputeNext125kHzJoinChannel( ( uint16_t* ) RegionNvmGroup1->ChannelsMaskRemaining,
+                    &RegionNvmGroup1->JoinChannelGroupsCurrentIndex, channel );
+                if( status == LORAMAC_STATUS_PARAMETER_INVALID )
                 {
+                    log_debug("RegionUS915NextChannel: RegionBaseUSComputeNext125kHzJoinChannel failed\n");
+                    log_debug("RegionUS915NextChannel: Reactivating channels\n");
+                    RegionCommonChanMaskCopy( RegionNvmGroup1->ChannelsMaskRemaining, RegionNvmGroup2->ChannelsMask, 4  );
+                    RegionNvmGroup1->JoinChannelGroupsCurrentIndex = 0;
                     return LORAMAC_STATUS_PARAMETER_INVALID;
                 }
             }

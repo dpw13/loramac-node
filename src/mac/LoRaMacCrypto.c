@@ -987,8 +987,9 @@ LoRaMacCryptoStatus_t LoRaMacCryptoPrepareJoinRequest( LoRaMacMessageJoinRequest
 
     // Add device nonce
 #if ( USE_RANDOM_DEV_NONCE == 1 )
-    uint32_t devNonce = 0;
-    SecureElementRandomNumber( &devNonce );
+    /* Seeded by the radio's RNG */
+    uint32_t devNonce = rand1();
+    //SecureElementRandomNumber( &devNonce );
     CryptoNvm->DevNonce = devNonce;
 #else
     CryptoNvm->DevNonce++;
@@ -1414,6 +1415,7 @@ LoRaMacCryptoStatus_t LoRaMacCryptoUnsecureMessage( AddressIdentifier_t addrID, 
     // Check if it is our address
     if( address != macMsg->FHDR.DevAddr )
     {
+        printk("LoRaMacCryptoUnsecureMessage: FHDR address %08x does not match expected %08x\n");
         return LORAMAC_CRYPTO_FAIL_ADDRESS;
     }
 
@@ -1455,7 +1457,7 @@ LoRaMacCryptoStatus_t LoRaMacCryptoUnsecureMessage( AddressIdentifier_t addrID, 
             {
                 return retval;
             }
-        } 
+        }
     }
 #endif
 

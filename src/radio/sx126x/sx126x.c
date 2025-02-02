@@ -785,6 +785,7 @@ RadioError_t SX126xGetDeviceErrors( void )
     error.Fields.PllCalib   = ( err[1] & ( 1 << 2 ) ) >> 2;
     error.Fields.Rc13mCalib = ( err[1] & ( 1 << 1 ) ) >> 1;
     error.Fields.Rc64kCalib = ( err[1] & ( 1 << 0 ) ) >> 0;
+
     return error;
 }
 

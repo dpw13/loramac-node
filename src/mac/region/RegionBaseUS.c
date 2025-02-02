@@ -33,7 +33,13 @@
 #include "LoRaMacTypes.h"
 #include "region/Region.h"
 #include "RegionBaseUS.h"
+#include "RegionUS915.h"
 
+#if LOG_DEBUG
+#define log_debug(...) printk(...)
+#else
+#define log_debug(...)
+#endif
 
 /*!
  * \brief Searches for available 125 kHz channels in the given channel mask.
@@ -110,6 +116,7 @@ LoRaMacStatus_t RegionBaseUSComputeNext125kHzJoinChannel( uint16_t* channelsMask
         {
             return LORAMAC_STATUS_PARAMETER_INVALID;
         }
+        log_debug("RegionBaseUSComputeNext125kHzJoinChannel: group %d (%02x) has %d channels\n", startIndex, currentChannelMaskLeft, availableChannels);
 
         if ( availableChannels > 0 )
         {
@@ -119,7 +126,7 @@ LoRaMacStatus_t RegionBaseUSComputeNext125kHzJoinChannel( uint16_t* channelsMask
 
         // Increment start index
         startIndex++;
-        if ( startIndex > 7 )
+        if ( startIndex >= US915_MAX_NB_GROUPS )
         {
             startIndex = 0;
         }
@@ -131,6 +138,7 @@ LoRaMacStatus_t RegionBaseUSComputeNext125kHzJoinChannel( uint16_t* channelsMask
         return LORAMAC_STATUS_OK;
     }
 
+    log_debug("RegionBaseUSComputeNext125kHzJoinChannel availableChannels == %d\n", availableChannels);
     return LORAMAC_STATUS_PARAMETER_INVALID;
 }
 

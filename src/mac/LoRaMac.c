@@ -48,6 +48,12 @@
 
 #include "LoRaMac.h"
 
+#if LOG_DEBUG
+#define log_debug(...) printk(...)
+#else
+#define log_debug(...)
+#endif
+
 /*!
  * Maximum PHY layer payload size
  */
@@ -762,6 +768,9 @@ static void OnRadioRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t
     LoRaMacRadioEvents.Events.RxDone = 1;
     LoRaMacRadioEvents.Events.RxProcessPending = 1;
 
+    log_debug("%d: OnRadioRxDone %d B RSSI %d SNR %d\n", RtcGetTimerValue(), size,
+        rssi, snr);
+
     OnMacProcessNotify( );
 }
 
@@ -808,6 +817,8 @@ static void ProcessRadioTxDone( void )
     {
         Radio.Sleep( );
     }
+
+    log_debug("%d: TX done at %d, RX1: %d RX2: %d\n", RtcGetTimerValue(), TxDoneParams.CurTime, MacCtx.RxWindow1Delay, MacCtx.RxWindow2Delay);
 
     // Setup timers
     CRITICAL_SECTION_BEGIN( );
@@ -941,7 +952,7 @@ static void ProcessRadioRxDone( void )
     // Abort on empty radio frames
     if( size == 0 )
     {
-        MacCtx.McpsIndication.Status = LORAMAC_EVENT_INFO_STATUS_ERROR;
+        MacCtx.McpsIndication.Status = LORAMAC_EVENT_INFO_STATUS_SMALL_FRAME;
         PrepareRxDoneAbort( );
         return;
     }
@@ -951,7 +962,7 @@ static void ProcessRadioRxDone( void )
     // Accept frames of LoRaWAN Major Version 1 only
     if( macHdr.Bits.Major != 0 )
     {
-        MacCtx.McpsIndication.Status = LORAMAC_EVENT_INFO_STATUS_ERROR;
+        MacCtx.McpsIndication.Status = LORAMAC_EVENT_INFO_STATUS_VERSION_MISMATCH;
         PrepareRxDoneAbort( );
         return;
     }
@@ -963,7 +974,7 @@ static void ProcessRadioRxDone( void )
             // Check if the received frame size is valid
             if( size < LORAMAC_JOIN_ACCEPT_FRAME_MIN_SIZE )
             {
-                MacCtx.McpsIndication.Status = LORAMAC_EVENT_INFO_STATUS_ERROR;
+                MacCtx.McpsIndication.Status = LORAMAC_EVENT_INFO_STATUS_SMALL_FRAME;
                 PrepareRxDoneAbort( );
                 return;
             }
@@ -2974,6 +2985,7 @@ static LoRaMacStatus_t ScheduleTx( bool allowDelayedTx )
     status = SerializeTxFrame( );
     if( status != LORAMAC_STATUS_OK )
     {
+        log_debug("ScheduleTx: SerializeTxFrame returned %d\n", status);
         return status;
     }
 
@@ -3017,6 +3029,7 @@ static LoRaMacStatus_t ScheduleTx( bool allowDelayedTx )
         }
         else
         {// State where the MAC cannot send a frame
+            log_debug("ScheduleTx: RegionNextChannel returned %d\n", status);
             return status;
         }
     }
@@ -3028,11 +3041,17 @@ static LoRaMacStatus_t ScheduleTx( bool allowDelayedTx )
     status = VerifyTxFrame( );
     if( status != LORAMAC_STATUS_OK )
     {
+        log_debug("ScheduleTx: VerifyTxFrame returned %d\n", status);
         return status;
     }
 
     // Try to send now
-    return SendFrameOnChannel( MacCtx.Channel );
+    status = SendFrameOnChannel( MacCtx.Channel );
+    if( status != LORAMAC_STATUS_OK )
+    {
+        log_debug("ScheduleTx: SendFrameOnChannel returned %d\n", status);
+    }
+    return status;
 }
 
 static LoRaMacStatus_t SecureFrame( uint8_t txDr, uint8_t txCh )
@@ -5170,6 +5189,7 @@ LoRaMacStatus_t LoRaMacMcChannelSetupRxParams( AddressIdentifier_t groupID, McRx
 
     if( ( rxParams->Class == CLASS_A ) || ( rxParams->Class > CLASS_C ) )
     {
+        printk("Bad class");
         return LORAMAC_STATUS_PARAMETER_INVALID;
     }
 
@@ -5195,6 +5215,8 @@ LoRaMacStatus_t LoRaMacMcChannelSetupRxParams( AddressIdentifier_t groupID, McRx
     if( RegionVerify( Nvm.MacGroup2.Region, &verify, PHY_RX_DR ) == true )
     {
         *status &= 0xFB; // datarate OK
+    } else {
+        printk("RegionVerify DR failed\n");
     }
 
     // Check frequency
@@ -5209,6 +5231,8 @@ LoRaMacStatus_t LoRaMacMcChannelSetupRxParams( AddressIdentifier_t groupID, McRx
     if( RegionVerify( Nvm.MacGroup2.Region, &verify, PHY_FREQUENCY ) == true )
     {
         *status &= 0xF7; // frequency OK
+    } else {
+        printk("RegionVerify freq failed\n");
     }
 
     if( *status == ( groupID & 0x03 ) )
@@ -5317,6 +5341,7 @@ LoRaMacStatus_t LoRaMacMlmeRequest( MlmeReq_t* mlmeRequest )
 
                 if( status != LORAMAC_STATUS_OK )
                 {
+                    log_debug("LoRaMacMlmeRequest: SendReJoinReq returned %d\n", status);
                     // Revert back the previous datarate ( mainly used for US915 like regions )
                     Nvm.MacGroup1.ChannelsDatarate = RegionAlternateDr( Nvm.MacGroup2.Region, mlmeRequest->Req.Join.Datarate, ALTERNATE_DR_RESTORE );
                 }

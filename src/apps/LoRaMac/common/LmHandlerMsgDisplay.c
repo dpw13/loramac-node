@@ -79,7 +79,9 @@ const char* EventInfoStatusStrings[] =
     "Multicast fail",                // LORAMAC_EVENT_INFO_STATUS_MULTICAST_FAIL
     "Beacon locked",                 // LORAMAC_EVENT_INFO_STATUS_BEACON_LOCKED
     "Beacon lost",                   // LORAMAC_EVENT_INFO_STATUS_BEACON_LOST
-    "Beacon not found"               // LORAMAC_EVENT_INFO_STATUS_BEACON_NOT_FOUND
+    "Beacon not found",              // LORAMAC_EVENT_INFO_STATUS_BEACON_NOT_FOUND
+    "Undersize frame",               // LORAMAC_EVENT_INFO_STATUS_SMALL_FRAME
+    "Version mismatch",              // LORAMAC_EVENT_INFO_STATUS_VERSION_MISMATCH
 };
 
 /*!

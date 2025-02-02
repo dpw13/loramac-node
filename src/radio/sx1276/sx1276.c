@@ -31,6 +31,12 @@
 #include "sx1276.h"
 #include "sx1276-board.h"
 
+#if LOG_DEBUG
+#define log_debug(...) printk(...)
+#else
+#define log_debug(...)
+#endif
+
 /*!
  * \brief Internal frequency of the radio
  */
@@ -347,6 +353,7 @@ void SX1276SetChannel( uint32_t freq )
 {
     uint32_t freqInPllSteps = SX1276ConvertFreqInHzToPllStep( freq );
 
+    log_debug("SX1276SetChannel: %d\n", freq);
     SX1276.Settings.Channel = freq;
 
     SX1276Write( REG_FRFMSB, ( uint8_t )( ( freqInPllSteps >> 16 ) & 0xFF ) );
@@ -474,6 +481,8 @@ void SX1276SetRxConfig( RadioModems_t modem, uint32_t bandwidth,
                          bool crcOn, bool freqHopOn, uint8_t hopPeriod,
                          bool iqInverted, bool rxContinuous )
 {
+    log_debug("SX1276SetRxConfig: BW %d DR %d CR %d preamble %d fixlen %d CRC %d\n",
+        bandwidth, datarate, coderate, preambleLen, fixLen, crcOn);
     SX1276SetModem( modem );
 
     SX1276SetStby( );
@@ -644,6 +653,8 @@ void SX1276SetTxConfig( RadioModems_t modem, int8_t power, uint32_t fdev,
                         bool fixLen, bool crcOn, bool freqHopOn,
                         uint8_t hopPeriod, bool iqInverted, uint32_t timeout )
 {
+    log_debug("SX1276SetTxConfig: %d dBm BW %d DR %d CR %d preamble %d fixlen %d CRC %d\n",
+        power, bandwidth, datarate, coderate, preambleLen, fixLen, crcOn);
     SX1276SetModem( modem );
 
     SX1276SetStby( );
@@ -880,6 +891,7 @@ void SX1276SetSleep( void )
     TimerStop( &RxTimeoutTimer );
     TimerStop( &TxTimeoutTimer );
     TimerStop( &RxTimeoutSyncWord );
+    log_debug("SX1276SetSleep\n");
 
     SX1276SetOpMode( RF_OPMODE_SLEEP );
 
@@ -894,6 +906,7 @@ void SX1276SetStby( void )
     TimerStop( &RxTimeoutTimer );
     TimerStop( &TxTimeoutTimer );
     TimerStop( &RxTimeoutSyncWord );
+    log_debug("SX1276SetStby\n");
 
     SX1276SetOpMode( RF_OPMODE_STANDBY );
     SX1276.Settings.State = RF_IDLE;
@@ -903,6 +916,7 @@ void SX1276SetRx( uint32_t timeout )
 {
     bool rxContinuous = false;
     TimerStop( &TxTimeoutTimer );
+    log_debug("SX1276SetRx %d\n", timeout);
 
     switch( SX1276.Settings.Modem )
     {
@@ -1067,7 +1081,7 @@ void SX1276SetRx( uint32_t timeout )
 static void SX1276SetTx( uint32_t timeout )
 {
     TimerStop( &RxTimeoutTimer );
-
+    log_debug("SX1276SetTx %d\n", timeout);
     TimerSetValue( &TxTimeoutTimer, timeout );
 
     switch( SX1276.Settings.Modem )
@@ -1209,6 +1223,7 @@ int16_t SX1276ReadRssi( RadioModems_t modem )
 
 static void SX1276SetOpMode( uint8_t opMode )
 {
+    log_debug("SX1276SetOpMode: %d\n", opMode);
 #if defined( USE_RADIO_DEBUG )
     switch( opMode )
     {
@@ -1256,6 +1271,8 @@ void SX1276SetModem( RadioModems_t modem )
     {
         return;
     }
+
+    log_debug("SX1276SetModem: %d -> %d\n", SX1276.Settings.Modem, modem);
 
     SX1276.Settings.Modem = modem;
     switch( SX1276.Settings.Modem )
