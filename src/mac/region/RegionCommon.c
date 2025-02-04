@@ -34,6 +34,12 @@
 #include "RegionCommon.h"
 #include "systime.h"
 
+#if LOG_DEBUG
+#define log_debug(...) printf(...)
+#else
+#define log_debug(...)
+#endif
+
 #define BACKOFF_DC_1_HOUR                   100
 
 #define BACKOFF_DUTY_CYCLE_1_HOUR_IN_S      3600
@@ -502,7 +508,7 @@ void RegionCommonCountNbOfEnabledChannels( RegionCommonCountNbOfEnabledChannelsP
     uint8_t nbChannelCount = 0;
     uint8_t nbRestrictedChannelsCount = 0;
 
-    //printk("RegionCommonCountNbOfEnabledChannels max %d dr %d\n", countNbOfEnabledChannelsParams->MaxNbChannels, countNbOfEnabledChannelsParams->Datarate);
+    log_debug("RegionCommonCountNbOfEnabledChannels max %d dr %d\n", countNbOfEnabledChannelsParams->MaxNbChannels, countNbOfEnabledChannelsParams->Datarate);
     for( uint8_t i = 0, k = 0; i < countNbOfEnabledChannelsParams->MaxNbChannels; i += 16, k++ )
     {
         for( uint8_t j = 0; j < 16; j++ )

@@ -41,6 +41,12 @@
 #include "LoRaMacSerializer.h"
 #include "LoRaMacCrypto.h"
 
+#if LOG_DEBUG
+#define log_debug(...) printf(...)
+#else
+#define log_debug(...)
+#endif
+
 /*
  * Frame direction definition for uplink communications
  */
@@ -1415,7 +1421,7 @@ LoRaMacCryptoStatus_t LoRaMacCryptoUnsecureMessage( AddressIdentifier_t addrID, 
     // Check if it is our address
     if( address != macMsg->FHDR.DevAddr )
     {
-        printk("LoRaMacCryptoUnsecureMessage: FHDR address %08x does not match expected %08x\n");
+        log_debug("LoRaMacCryptoUnsecureMessage: FHDR address %08x does not match expected %08x\n", macMsg->FHDR.DevAddr, address);
         return LORAMAC_CRYPTO_FAIL_ADDRESS;
     }
 

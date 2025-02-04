@@ -34,7 +34,7 @@
 #include "RegionBaseUS.h"
 
 #if LOG_DEBUG
-#define log_debug(...) printk(...)
+#define log_debug(...) printf(...)
 #else
 #define log_debug(...)
 #endif
@@ -357,7 +357,7 @@ void RegionUS915InitDefaults( InitDefaultsParams_t* params )
                 RegionNvmGroup2->Channels[i].Frequency = 902300000 + i * 200000;
                 RegionNvmGroup2->Channels[i].DrRange.Value = ( DR_3 << 4 ) | DR_0;
                 RegionNvmGroup2->Channels[i].Band = 0;
-                //log_debug("Ch %d freq %d 125 kHz\n", i, RegionNvmGroup2->Channels[i].Frequency);
+                log_debug("Ch %d freq %d 125 kHz\n", i, RegionNvmGroup2->Channels[i].Frequency);
             }
             for( uint8_t i = 0; i < US915_MAX_NB_GROUPS; i++ )
             {
@@ -365,7 +365,7 @@ void RegionUS915InitDefaults( InitDefaultsParams_t* params )
                 RegionNvmGroup2->Channels[64 + i].Frequency = 903000000 + ( i - ( US915_MAX_NB_CHANNELS - 8 ) ) * 1600000;
                 RegionNvmGroup2->Channels[64 + i].DrRange.Value = ( DR_4 << 4 ) | DR_4;
                 RegionNvmGroup2->Channels[64 + i].Band = 0;
-                //log_debug("Ch %d freq %d 500 kHz\n", 64 + i, RegionNvmGroup2->Channels[4 + i].Frequency);
+                log_debug("Ch %d freq %d 500 kHz\n", 64 + i, RegionNvmGroup2->Channels[4 + i].Frequency);
             }
 
             // Default ChannelsMask
@@ -533,7 +533,7 @@ bool RegionUS915RxConfig( RxConfigParams_t* rxConfig, int8_t* datarate )
     int8_t phyDr = 0;
     uint32_t frequency = rxConfig->Frequency;
 
-    //log_debug("RegionUS915RxConfig not idle\n");
+    log_debug("RegionUS915RxConfig not idle\n");
 
     if( Radio.GetStatus( ) != RF_IDLE )
     {
@@ -549,7 +549,7 @@ bool RegionUS915RxConfig( RxConfigParams_t* rxConfig, int8_t* datarate )
     // Read the physical datarate from the datarates table
     phyDr = DataratesUS915[dr];
 
-    //log_debug("RegionUS915RxConfig ch %d %d/%d bw %d dr %d\n", rxConfig->Channel, rxConfig->Frequency, frequency, rxConfig->Bandwidth, dr);
+    log_debug("RegionUS915RxConfig ch %d %d/%d bw %d dr %d\n", rxConfig->Channel, rxConfig->Frequency, frequency, rxConfig->Bandwidth, dr);
     Radio.SetChannel( frequency );
 
     // Radio configuration
@@ -572,7 +572,7 @@ bool RegionUS915TxConfig( TxConfigParams_t* txConfig, int8_t* txPower, TimerTime
     phyTxPower = RegionCommonComputeTxPower( txPowerLimited, US915_DEFAULT_MAX_ERP, 0 );
 
     // Setup the radio frequency
-    //log_debug("RegionUS915TxConfig channel %d\n", txConfig->Channel);
+    log_debug("RegionUS915TxConfig channel %d\n", txConfig->Channel);
     Radio.SetChannel( RegionNvmGroup2->Channels[txConfig->Channel].Frequency );
 
     Radio.SetTxConfig( MODEM_LORA, phyTxPower, 0, bandwidth, phyDr, 1, 8, false, true, 0, 0, false, 4000 );

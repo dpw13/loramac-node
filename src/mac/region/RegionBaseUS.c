@@ -36,7 +36,7 @@
 #include "RegionUS915.h"
 
 #if LOG_DEBUG
-#define log_debug(...) printk(...)
+#define log_debug(...) printf(...)
 #else
 #define log_debug(...)
 #endif

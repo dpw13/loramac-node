@@ -49,7 +49,7 @@
 #include "LoRaMac.h"
 
 #if LOG_DEBUG
-#define log_debug(...) printk(...)
+#define log_debug(...) printf(...)
 #else
 #define log_debug(...)
 #endif
@@ -5189,7 +5189,7 @@ LoRaMacStatus_t LoRaMacMcChannelSetupRxParams( AddressIdentifier_t groupID, McRx
 
     if( ( rxParams->Class == CLASS_A ) || ( rxParams->Class > CLASS_C ) )
     {
-        printk("Bad class");
+        log_debug("Bad class");
         return LORAMAC_STATUS_PARAMETER_INVALID;
     }
 
@@ -5216,7 +5216,7 @@ LoRaMacStatus_t LoRaMacMcChannelSetupRxParams( AddressIdentifier_t groupID, McRx
     {
         *status &= 0xFB; // datarate OK
     } else {
-        printk("RegionVerify DR failed\n");
+        log_debug("RegionVerify DR failed\n");
     }
 
     // Check frequency
@@ -5232,7 +5232,7 @@ LoRaMacStatus_t LoRaMacMcChannelSetupRxParams( AddressIdentifier_t groupID, McRx
     {
         *status &= 0xF7; // frequency OK
     } else {
-        printk("RegionVerify freq failed\n");
+        log_debug("RegionVerify freq failed\n");
     }
 
     if( *status == ( groupID & 0x03 ) )
